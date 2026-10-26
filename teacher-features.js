@@ -87,7 +87,8 @@ window.APT_FEATURES = function({state,sections,store,esc,render,page,toast,downl
   function creatorNew(){state.creatorEditing=null;state.creatorDraft={type:'speaking4',part:'Part 4'};page('creator')}
   function sectionToDraft(s){
     const it=s.items?.[0]||{},type=s.creatorType||({writing_chat:'writing_chat',writing_short:'writing_short',writing_dual_email:'writing_dual_email',reading_quiz:'reading_quiz',listening_quiz:'listening_quiz',reading_order:'reading_order',reading_opinion:'reading_opinion'}[s.type]||(s.part==='Part 4'?'speaking4':'speaking_basic'));
-    const base={type,title:s.title,part:s.part,dueDate:s.dueDate||'',source:s.sourceLabel||'',instructions:s.description||'',...it};
+    const base={type,title:s.title,part:s.part,dueDate:s.dueDate||'',source:s.sourceLabel||'',instructions:s.description||'',...it,prepSeconds:s.settings?.prepSeconds,speakSeconds:s.settings?.speakSeconds};
+    if(type==='speaking_basic'){base.q2=it.questions?.[1]||'';base.q2_vi=it.questions_vi?.[1]||'';base.q3=it.questions?.[2]||'';base.q3_vi=it.questions_vi?.[2]||'';base.a2=it.sampleAnswers?.[1]||'';base.a2_vi=it.sampleAnswers_vi?.[1]||'';base.a3=it.sampleAnswers?.[2]||'';base.a3_vi=it.sampleAnswers_vi?.[2]||'';}
     if(type==='speaking4'){(it.questions||[]).forEach((x,i)=>{base['q'+(i+1)]=x;base['q'+(i+1)+'_vi']=it.questions_vi?.[i]||''});(it.sampleAnswers||[]).forEach((x,i)=>{base['a'+(i+1)]=x;base['a'+(i+1)+'_vi']=it.sampleAnswers_vi?.[i]||''});base.sample=it.sample||'';base.variants=(it.variants||[]).join('\n')}
     if(type==='writing_chat'){(it.questions||[]).forEach((x,i)=>{base['q'+(i+1)]=x.prompt;base['q'+(i+1)+'_vi']=x.prompt_vi||'';base['a'+(i+1)]=x.sample;base['a'+(i+1)+'_vi']=x.sample_vi||''});}
     if(['reading_quiz','listening_quiz'].includes(type))base.quiz=(it.questions||[]).map(q=>['Q: '+q.prompt,...(q.options||[]).map((o,i)=>String.fromCharCode(65+i)+') '+o),'ANSWER: '+(Number.isInteger(q.answer)?String.fromCharCode(65+q.answer):'?'),'EXPLAIN: '+(q.explanation||'')].join('\n')).join('\n---\n');
@@ -98,7 +99,20 @@ window.APT_FEATURES = function({state,sections,store,esc,render,page,toast,downl
   }
   function renderFields(t,d){
     if(t==='speaking4')return `<div class="notice">Nhập <b>đủ ba câu hỏi</b>. Phần gợi ý khi làm sẽ chỉ cách chia thời gian 2 phút cho cả ba câu. Thêm bản dịch từng câu để dễ ôn.</div>${[1,2,3].map(i=>pairedInput('q'+i,'Câu hỏi '+i,d,i===1?'Tell me about a time when...':'What do you think about...',true)).join('')}${pairedArea('sample','Bài mẫu câu 1',d,'Today, I would like to talk about...',7)}${pairedArea('a2','Bài mẫu câu 2',d,'In my opinion...',3)}${pairedArea('a3','Bài mẫu câu 3',d,'I believe...',3)}${textArea('variants','Các dạng đề muốn gộp (mỗi dòng một đề)',d.variants||'','worked as part of a team\nmade an important decision',4)}`;
-    if(t==='speaking_basic')return `${pairedArea('prompt','Đề nói',d,'Describe a picture / Tell me about...',3)}${pairedArea('sample','Bài mẫu',d,'Sample answer...',6)}<div class="formrow">${numberField('prepSeconds','Chuẩn bị (giây)',d.prepSeconds||5,0,300)}${numberField('speakSeconds','Nói (giây)',d.speakSeconds||30,10,300)}</div>`;
+    if(t==='speaking_basic'){
+      const part=String(d.part||'Part 1').match(/part\s*([123])/i)?.[1]||'1';
+      const target=part==='1'?30:45;
+      return `<div class="notice">Theo Aptis General: <b>Part 1 = 30 gi\u00e2y/c\u00e2u</b>, <b>Part 2 v\u00e0 3 = 45 gi\u00e2y/c\u00e2u</b>. Nh\u1eadp ba c\u00e2u n\u1ebfu c\u00f3; b\u1ed9 \u0111\u1ebfm gi\u1edd s\u1ebd chuy\u1ec3n gi\u1eefa c\u00e1c c\u00e2u.</div>
+      ${pairedArea('prompt','C\u00e2u h\u1ecfi 1 / \u0111\u1ec1 n\u00f3i',d,'Describe a picture / Tell me about...',3)}
+      ${pairedArea('q2','C\u00e2u h\u1ecfi 2 (kh\u00f4ng b\u1eaft bu\u1ed9c)',d,'Tell me about your experience...',2)}
+      ${pairedArea('q3','C\u00e2u h\u1ecfi 3 (kh\u00f4ng b\u1eaft bu\u1ed9c)',d,'Why is this important in society?',2)}
+      ${pairedArea('sample','B\u00e0i m\u1eabu c\u00e2u 1',d,'Sample answer...',4)}
+      ${pairedArea('a2','B\u00e0i m\u1eabu c\u00e2u 2',d,'Sample answer...',2)}
+      ${pairedArea('a3','B\u00e0i m\u1eabu c\u00e2u 3',d,'Sample answer...',2)}
+      ${part==='2'?textInput('image','\u0110\u01b0\u1eddng d\u1eabn h\u00ecnh minh h\u1ecda (t\u00f9y ch\u1ecdn)',d.image||'','assets/speaking/picture.jpg'):''}
+      ${part==='3'?textInput('image1','\u1ea2nh th\u1ee9 nh\u1ea5t (URL HTTPS / assets)',d.image1||'','assets/speaking/a.jpg')+textInput('image2','\u1ea2nh th\u1ee9 hai (URL HTTPS / assets)',d.image2||'','assets/speaking/b.jpg'):''}
+      <div class="formrow">${numberField('prepSeconds','Chu\u1ea9n b\u1ecb (gi\u00e2y, luy\u1ec7n ri\u00eang)',d.prepSeconds??0,0,300)}${numberField('speakSeconds','N\u00f3i (gi\u00e2y / c\u00e2u)',d.speakSeconds??target,10,600)}</div>`;
+    }
     if(t==='writing_short')return `${pairedArea('prompt','Đề viết',d,'Why do you want to join the book club?',3)}${pairedArea('sample','Bài mẫu',d,'',5)}<div class="formrow">${numberField('minWords','Tối thiểu (từ)',d.minWords??20,0,500)}${numberField('maxWords','Tối đa (từ)',d.maxWords??30,1,1000)}</div>`;
     if(t==='writing_chat')return `${pairedArea('instructions','Yêu cầu chung',d,'Write 30–40 words for each reply.',2)}${[1,2,3].map(i=>`${pairedArea('q'+i,'Câu hỏi chat '+i,d,'Hi! What do you think about...',2)}${pairedArea('a'+i,'Bài mẫu câu '+i,d,'',3)}`).join('')}<div class="formrow">${numberField('minWords','Tối thiểu mỗi câu',d.minWords??30,1,500)}${numberField('maxWords','Tối đa mỗi câu',d.maxWords??40,1,500)}</div>`;
     if(t==='writing_dual_email')return `${pairedArea('scenario','Tình huống / email từ CLB',d,'You have received an email...',4)}<label class="formfield"><span>Loại tình huống</span><select name="kind"><option value="problem" ${d.kind!=='proposal'?'selected':''}>Vấn đề cần giải quyết</option><option value="proposal" ${d.kind==='proposal'?'selected':''}>Đề xuất ý tưởng</option></select></label>${pairedArea('informalSample','Mẫu email bạn bè (40–50 từ)',d,'Hi John,...',5)}${pairedArea('formalSample','Mẫu email quản lý (120–150 từ)',d,'Dear Sir or Madam,...',7)}`;
@@ -111,7 +125,8 @@ window.APT_FEATURES = function({state,sections,store,esc,render,page,toast,downl
     const d=state.creatorDraft||{type:'speaking4',part:'Part 4'},t=d.type||'speaking4';
     $('#app').innerHTML=`<div class="pageintro"><span class="pill custom">Biên soạn tại máy</span><h1>${state.creatorEditing?'Sửa bài tập':'Tạo bài tập mới'}</h1><p>Dán yêu cầu của thầy, bổ sung đáp án mẫu (nếu có) và lưu. Bài sẽ xuất hiện ở mục <b>Bài thầy giao</b> và đúng kỹ năng. Không cần chỉnh sửa JavaScript/JSON.</p></div>
     <form id="creatorForm" class="card creatorform" onsubmit="return false">
-      <div class="formrow"><label class="formfield"><span>Loại bài tập</span><select name="type" onchange="APT.creatorType(this.value)">${TYPES.map(([v,l])=>`<option value="${v}" ${v===t?'selected':''}>${esc(l)}</option>`).join('')}</select></label><label class="formfield"><span>Phần thi</span><input type="text" name="part" value="${attr(d.part||defaultPart(t))}" placeholder="Part 4"></label></div>
+            <div class="formrow"><label class="formfield"><span>Lo\u1ea1i b\u00e0i t\u1eadp</span><select name="type" onchange="APT.creatorType(this.value)">${TYPES.map(([v,l])=>`<option value="${v}" ${v===t?'selected':''}>${esc(l)}</option>`).join('')}</select></label>
+      <label class="formfield"><span>Ph\u1ea7n thi</span>${t==='speaking_basic'?`<select name="part" onchange="APT.creatorPart(this.value)">${['Part 1','Part 2','Part 3'].map(v=>`<option value="${v}" ${v===(d.part||'Part 1')?'selected':''}>${v}</option>`).join('')}</select>`:`<input type="text" name="part" value="${attr(d.part||defaultPart(t))}" placeholder="Part 4">`}</label></div>
       ${textInput('title','Tên bài tập',d.title||'','VD: Speaking Part 4 — gộp 6 đề',true)}
       <div class="formrow"><label class="formfield"><span>Hạn nộp (không bắt buộc)</span><input type="date" name="dueDate" value="${attr(d.dueDate||'')}"></label>${textInput('source','Nguồn (thầy / buổi học / trang)',d.source||'','Buổi 3 – bài tập về nhà')}</div>
       ${t==='writing_chat'?'':textArea('instructions','Ghi chú / yêu cầu',d.instructions||'','Ví dụ: 1 phút chuẩn bị, 2 phút trả lời.',2)}
@@ -126,6 +141,7 @@ window.APT_FEATURES = function({state,sections,store,esc,render,page,toast,downl
   }
   function captureCreator(){const form=$('#creatorForm');return form?Object.fromEntries(new FormData(form).entries()):{}}
   function creatorType(t){state.creatorDraft={...captureCreator(),type:t,part:defaultPart(t)};renderCreator()}
+  function creatorPart(part){const d=captureCreator();state.creatorDraft={...d,part,prepSeconds:0,speakSeconds:part==='Part 1'?30:45};renderCreator()}
   function toAssignment(d,old){
     const title=String(d.title||'').trim();if(!title)throw new Error('Cần nhập tên bài tập.');
     const type=d.type||'speaking4',id=old?.id||'personal-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,6);
@@ -136,7 +152,14 @@ window.APT_FEATURES = function({state,sections,store,esc,render,page,toast,downl
       item={...item,prompt:qs[0],questions:qs,sample:d.sample||'',sampleAnswers:[d.sample||'',d.a2||'',d.a3||''],sample_vi:d.sample_vi||'',questions_vi:[d.q1_vi||'',d.q2_vi||'',d.q3_vi||''],sampleAnswers_vi:[d.sample_vi||'',d.a2_vi||'',d.a3_vi||''],variants:String(d.variants||'').split('\n').map(s=>s.trim()).filter(Boolean),sampleSource:'Bài mẫu do người tạo nhập; không tự chấm mức B2.'}; renderer='speaking_prompt';
     } else if(type==='speaking_basic'){
       if(!d.prompt?.trim())throw new Error('Thiếu đề Speaking.');
-      item={...item,prompt:d.prompt,prompt_vi:d.prompt_vi||'',sample:d.sample||'',sample_vi:d.sample_vi||''};renderer='speaking_prompt';
+      if(d.q3?.trim()&&!d.q2?.trim())throw new Error('C\u1ea7n nh\u1eadp c\u00e2u 2 n\u1ebfu c\u00f3 c\u00e2u 3.');
+      const qs=[d.prompt,d.q2,d.q3].filter(x=>String(x||'').trim());
+      const vi=[d.prompt_vi||'',d.q2_vi||'',d.q3_vi||''].slice(0,qs.length);
+      item={...item,prompt:d.prompt,prompt_vi:d.prompt_vi||'',questions:qs,questions_vi:vi,
+        sample:d.sample||'',sample_vi:d.sample_vi||'',sampleAnswers:[d.sample||'',d.a2||'',d.a3||''],sampleAnswers_vi:[d.sample_vi||'',d.a2_vi||'',d.a3_vi||'']};
+      if(part==='Part 2'&&d.image?.trim()){item.image=d.image.trim();renderer='speaking_picture'}
+      else if(part==='Part 3'&&(d.image1?.trim()||d.image2?.trim())){item.images=[d.image1||'',d.image2||''].filter(x=>x.trim());renderer='speaking_compare'}
+      else renderer='speaking_prompt';
     } else if(type==='writing_short'){
       if(!d.prompt?.trim())throw new Error('Thiếu đề Writing.');
       item={...item,prompt:d.prompt,prompt_vi:d.prompt_vi||'',sample:d.sample||'',sample_vi:d.sample_vi||'',minWords:Number(d.minWords),maxWords:Number(d.maxWords)};
@@ -173,7 +196,7 @@ window.APT_FEATURES = function({state,sections,store,esc,render,page,toast,downl
       if(!item.questions.length)throw new Error('Cần ít nhất 1 câu hỏi Opinion Matching.');
     } else throw new Error('Loại bài tập chưa hỗ trợ.');
     if(['writing_short','writing_chat'].includes(type) && (!Number.isFinite(item.minWords)||!Number.isFinite(item.maxWords)||item.minWords<0||item.maxWords<item.minWords))throw new Error('Giới hạn số từ không hợp lệ.');
-    return {id,creatorType:type,skill,part,title,type:renderer,status:'custom',teacherAssigned:true,sourceLabel:d.source?.trim()||'Bài tập tự tạo trên thiết bị',dueDate:d.dueDate||'',description:d.instructions||'',settings: type==='speaking4'?{prepSeconds:60,speakSeconds:120}:type==='speaking_basic'?{prepSeconds:Number(d.prepSeconds)||5,speakSeconds:Number(d.speakSeconds)||30}:undefined,items:[item]};
+    return {id,creatorType:type,skill,part,title,type:renderer,status:'custom',teacherAssigned:true,sourceLabel:d.source?.trim()||'Bài tập tự tạo trên thiết bị',dueDate:d.dueDate||'',description:d.instructions||'',settings: type==='speaking4'?{prepSeconds:60,speakSeconds:120}:type==='speaking_basic'?{prepSeconds:Math.max(0,Number(d.prepSeconds)||0),speakSeconds:Number(d.speakSeconds)||(/^Part 1$/i.test(part)?30:45)}:undefined,items:[item]};
   }
   function creatorSave(){
     try{
@@ -210,5 +233,5 @@ window.APT_FEATURES = function({state,sections,store,esc,render,page,toast,downl
       Object.assign(state,ns);window.APT_STUDY.importCache(x.translations);toast('Đã nhập và gộp sao lưu');render();
     }catch(e){alert('Không nhập được sao lưu: '+e.message)}
   }
-  return {renderAssignments,openAssignment,editAssignment,deleteAssignment,renderCreator,creatorNew,creatorType,creatorSave,exportAssignments,exportBackup,importBackup};
+  return {renderAssignments,openAssignment,editAssignment,deleteAssignment,renderCreator,creatorNew,creatorType,creatorSave,creatorPart,exportAssignments,exportBackup,importBackup};
 };

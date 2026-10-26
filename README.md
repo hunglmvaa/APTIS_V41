@@ -1,8 +1,17 @@
-# APTIS Practice Hub v4.2 — B2 | Song ngữ và bài thầy giao
+# APTIS Practice Hub v4.3 — B2 | Song ngữ và bài thầy giao
 
 Ứng dụng HTML/CSS/JavaScript không cần backend, triển khai trực tiếp bằng GitHub Pages. Kế thừa phiên bản v4.1 đã dùng tại repository `hunglmvaa/APTIS_V41`.
 
-**Hướng dẫn V4.2:** [Dịch tiếng Việt, gợi ý bài, tạo/import bài và cập nhật GitHub](docs/HUONG_DAN_DICH_V4_2.md).
+**Hướng V4.2:** [Dịch tiếng Việt, gợi ý bài, tạo/import bài và cập nhật GitHub](docs/HUONG_DAN_DICH_V4_2.md).
+
+## Speaking timer v4.3
+
+- Part 1: 30 seconds per answer; Parts 2-3: 45 seconds per answer; Part 4: 60 seconds preparation + 120 seconds answering all three questions (Aptis ESOL General official practice timings).
+- Start, pause/resume, reset, skip preparation, focus on each question, and optional automatic question transition.
+- Standard test mode or extended practice mode (+30 seconds per answer); alerts when only 10 seconds remain.
+- New `speaking-timer.js`; the timer is available automatically for imported Speaking exercises without changing their JSON schema.
+- Recording and ZIP submission stay independent of the timer. Existing data and audio are preserved.
+- **Guide:** [Speaking Timer v4.3](docs/SPEAKING_TIMER_V4_3.md) | [Changelog v4.3](docs/CHANGELOG_V4_3.md)
 
 ## Điểm mới V4.2
 
@@ -38,4 +47,4 @@
 - Không nhập được trực tiếp file DOCX/PDF hoặc URL Google Docs thành bài tập. Dán nội dung vào **Tạo bài tập** hoặc dùng pack JSON.
 - Không đồng bộ tiến độ/audio giữa thiết bị. Sao lưu JSON không chứa ghi âm. Khi nộp Speaking cần tải ZIP có bản ghi âm.
 
-**Changelog:** [V4.2](docs/CHANGELOG_V4_2.md) · [V4.1](docs/CHANGELOG_V4_1.md) · [V4](docs/CHANGELOG_V4.md).
+**Changelog:** [V4.3](docs/CHANGELOG_V4_3.md) · [V4.2](docs/CHANGELOG_V4_2.md) · [V4.1](docs/CHANGELOG_V4_1.md) · [V4](docs/CHANGELOG_V4.md).

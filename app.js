@@ -55,7 +55,15 @@ function skillSections(skill){return sections().filter(s=>s.skill===skill)}
 function sectionById(id){return sections().find(s=>s.id===id)}
 function persist(){store.set('aptis_progress_v3',state.progress);store.set('aptis_drafts_v3',state.drafts)}
 function toast(msg){let t=$('#toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),1700)}
-function stopTimer(){if(state.timer){clearInterval(state.timer);state.timer=null}}
+let speakingClock=null, speakingClockKey='', speakingClockQuestions=[], speakingClockAudio=null;
+const TIMER_PREFS_KEY='aptis_speaking_timer_prefs_v43';
+let timerPrefs={mode:'exam',sound:true,autoPrep:true,autoNext:false,...store.get(TIMER_PREFS_KEY,{})};
+function stopTimer(){
+  if(speakingClock){speakingClock.destroy();speakingClock=null}
+  speakingClockKey='';speakingClockQuestions=[];
+  if(state.timer){clearInterval(state.timer);state.timer=null}
+}
+
 function stopTTS(){if('speechSynthesis'in window)speechSynthesis.cancel()}
 function speak(text){stopTTS();if(!('speechSynthesis'in window))return;let u=new SpeechSynthesisUtterance(text);u.lang='en-GB';u.rate=.92;speechSynthesis.speak(u)}
 function markDone(key,score=1,total=1){if(!total||total<0)return;let old=state.progress[key]||{attempts:0,best:0,total};old.attempts++;old.total=total;old.best=Math.max(old.best||0,score);old.last=score;old.updated=new Date().toISOString();state.progress[key]=old;persist();renderNav()}
@@ -84,10 +92,10 @@ function renderHome(){
     <div class="grid">
       <section class="card span8 hero">
         <span class="pill ok">APTIS ESOL General · Mục tiêu B2</span>
-        <h1>APTIS Practice Hub v4.2</h1>
-        <p>Luyện các đề có sẵn và trực tiếp tạo bài tập thầy giao. Phần <b>Speaking Part 4</b> hiển thị đủ ba câu hỏi, đồng hồ chuẩn bị 1 phút, trả lời 2 phút và ghi âm.</p>
+        <h1>APTIS Practice Hub v4.3</h1>
+        <p>Luyện các đề có sẵn và trực tiếp tạo bài tập thầy giao. Speaking Part 1–4 có đồng hồ riêng theo chuẩn APTIS, tạm dừng, cảnh báo 10 giây và ghi âm.</p>
         <div class="row"><button class="btn primary" onclick="APT.page('assignments')">Bài thầy giao (${exercises.length})</button><button class="btn" onclick="APT.creatorNew()">+ Tạo bài tập</button><button class="btn" onclick="APT.page('speaking')">Luyện Speaking</button><button class="btn good" onclick="APT.page('submission')">Xuất bài nộp (.zip)</button></div>
-        <div class="notice ok"><b>Mới V4.2:</b> Tại mỗi bài, nhấn <b>🌐 Dịch toàn bài</b>, <b>Dịch VI</b> cho từng đoạn, hoặc mở <b>💡 Gợi ý làm bài chi tiết</b>. Khi tạo/import bài mới có thể bổ sung bản dịch tiếng Việt.</div><div class="notice warn"><b>Lưu ý:</b> Nút Dịch VI chỉ tạo bản dịch tham khảo nếu đề chưa có tiếng Việt; ứng dụng không tự kết luận trình độ B2 từ số từ hoặc đánh dấu đã luyện.</div>
+        <div class="notice ok"><b>V4.3:</b> Bộ đếm giờ Speaking 1–4 có chế độ ôn thi và luyện chậm, chuyển câu, tạm dừng/làm lại. <b>V4.2:</b> Tại mỗi bài, nhấn <b>🌐 Dịch toàn bài</b>, <b>Dịch VI</b> cho từng đoạn, hoặc mở <b>💡 Gợi ý làm bài chi tiết</b>. Khi tạo/import bài mới có thể bổ sung bản dịch tiếng Việt.</div><div class="notice warn"><b>Lưu ý:</b> Nút Dịch VI chỉ tạo bản dịch tham khảo nếu đề chưa có tiếng Việt; ứng dụng không tự kết luận trình độ B2 từ số từ hoặc đánh dấu đã luyện.</div>
       </section>
       <section class="card span4">
         <h3>Tỉ lệ bài đã luyện</h3><div class="progressBig">${completion()}%</div>
@@ -169,7 +177,7 @@ function speakingQuestions(sec,item){
 function selectVariant(secId,itemId,variant){
   const sec=sectionById(secId),item=sec?.items?.find(i=>i.id===itemId);if(!item)return;
   state.variantSelection[secId+':'+itemId]=Math.max(0,Math.min(Number(variant)||0,(item.variants||[]).length-1));
-  stopRecording(true);renderSection(sec);
+  stopTimer();stopRecording(true);renderSection(sec);
 }
 function ttsCurrent(secId,itemId){
   const sec=sectionById(secId),item=sec?.items?.find(i=>i.id===itemId);
@@ -181,9 +189,8 @@ function speakingCommon(sec,item,imageHtml=''){
   let sample2=item.sampleAnswers?.[1]||'',sample3=item.sampleAnswers?.[2]||'',v=state.variantSelection[sec.id+':'+item.id];
   let variantUI=(item.variants||[]).length?`<div class="variantPanel"><label for="variantChoice" class="small"><b>Chọn một dạng đề gộp</b></label><select id="variantChoice" onchange="APT.selectVariant('${esc(sec.id)}','${esc(item.id)}',this.value)"><option value="" ${v===undefined?'selected':''}>Đề gốc</option>${item.variants.map((x,i)=>`<option value="${i}" ${v===i?'selected':''}>${esc(x)}</option>`).join('')}</select><p class="small muted">Chỉ thay trọng tâm kể chuyện; câu 2 và 3 phải trả lời theo câu hỏi thực tế.</p></div>`:'';
   $('#exercise').innerHTML=`<div class="card">${header(sec,item)}${imageHtml}${variantUI}
-    <div class="prompt"><div class="row between"><b>Câu hỏi cần trả lời</b><button class="btn small" onclick="APT.ttsCurrent('${esc(sec.id)}','${esc(item.id)}')">🔊 Đọc đề</button></div><ol class="speakingQuestions">${qs.map(x=>`<li>${esc(x)}</li>`).join('')}</ol>${item.title_vi?`<div class="translation">${esc(item.title_vi)}</div>`:''}</div>
-    <div class="timerbox"><span class="timer" id="sTimer">00:00</span><button class="btn" onclick="APT.startTimer(${prep},'Chuẩn bị')">Chuẩn bị ${prep}s</button><button class="btn primary" onclick="APT.startTimer(${speakSec},'Nói')">Nói ${speakSec}s</button><button class="btn small" onclick="APT.stopTimer()">Dừng giờ</button></div>
-    <div id="timerLabel" class="muted small" aria-live="polite"></div>
+    <div class="prompt"><div class="row between"><b>C\u00e2u h\u1ecfi c\u1ea7n tr\u1ea3 l\u1eddi</b><button class="btn small" onclick="APT.ttsCurrent('${esc(sec.id)}','${esc(item.id)}')">\ud83d\udd0a \u0110\u1ecdc \u0111\u1ec1</button></div><ol class="speakingQuestions">${qs.map((x,i)=>`<li data-speaking-question="${i}">${esc(x)}</li>`).join('')}</ol>${item.title_vi?`<div class="translation">${esc(item.title_vi)}</div>`:''}</div>
+    ${speakingTimerMarkup(sec,qs)}
     <label class="formfield" style="margin-top:12px"><span>Ghi nhanh 5–7 từ khóa khi chuẩn bị</span><textarea rows="3" oninput="APT.saveDraft('${esc(k)}',this.value,null,0,999)" placeholder="when / where / who / problem / action / result...">${esc(state.drafts[k]||'')}</textarea></label>
     <label class="formfield"><span>Nội dung bài nói của anh (tự nhập nếu muốn gửi kèm; ứng dụng chưa tự chép lời)</span><textarea rows="5" oninput="APT.saveDraft('speech:${esc(sec.id)}:${esc(item.id)}',this.value,null,0,9999)" placeholder="Today, I'd like to talk about...">${esc(state.drafts['speech:'+sec.id+':'+item.id]||'')}</textarea></label>
     <div class="recordbox"><b>Ghi âm luyện nói</b><div class="row" style="margin-top:8px"><button class="btn primary" onclick="APT.startRecording()">🎙 Bắt đầu</button><button class="btn" onclick="APT.stopRecording(false)">■ Dừng</button><button class="btn" id="downloadRec" style="display:none">Tải bản ghi</button><label class="btn small">Đính kèm file âm thanh cũ<input type="file" accept="audio/*,.webm,.m4a,.mp3,.ogg" hidden onchange="APT.attachRecording(this.files[0]);this.value='' "></label></div><div id="recordStatus" class="muted small" style="margin-top:7px">Dùng HTTPS hoặc localhost; bản ghi mới được lưu riêng trong trình duyệt này. Không tự đồng bộ giữa các thiết bị. Kiểm tra bằng nút Nghe lại trước khi xuất.</div><div id="recordPlayback"></div></div>
@@ -196,16 +203,146 @@ ${esc(sample3)}</div>`:''}${item.sample_vi?`<div class="translation sample"><b>T
 ${esc(item.sample_vi)}</div>`:''}${item.sampleSource?`<p class="sourceNote">${esc(item.sampleSource)}</p>`:''}${item.teacherSample?`<details><summary>Mở bài mẫu gốc của thầy (lưu riêng, không chỉnh sửa)</summary><div class="sample">${esc(item.teacherSample)}</div></details>`:''}</div>
     ${navItem(sec)}</div>`;
   state.currentAudioKey=sec.id+':'+item.id;
+  ensureSpeakingClock(sec,item,qs);
   loadSavedAudio(state.currentAudioKey);
 }
 function renderSpeakingPrompt(sec){let item=sec.items[itemIndex(sec)];speakingCommon(sec,item)}
 function renderSpeakingPicture(sec){let item=sec.items[itemIndex(sec)],src=safeUrl(item.image);speakingCommon(sec,item,src?`<img class="imgbox" src="${esc(src)}" alt="Speaking picture">`:`<div class="notice warn">Ảnh chưa có/đường dẫn không hợp lệ.</div>`)}
 function renderSpeakingCompare(sec){let item=sec.items[itemIndex(sec)],imgs=(item.images||[]).map(safeUrl).filter(Boolean);let h=imgs.length?`<div class="compareimgs">${imgs.map(x=>`<img src="${esc(x)}" alt="Speaking comparison">`).join('')}</div>`:`<div class="notice warn">Chưa có cặp ảnh.</div>`;speakingCommon(sec,item,h)}
-function startTimer(seconds,label){
-  stopTimer();let left=Math.max(0,Math.floor(Number(seconds)||0));const el=$('#timerLabel');if(el)el.textContent=label;
-  const tick=()=>{const timer=$('#sTimer');if(!timer){stopTimer();return}timer.textContent=`${String(Math.floor(left/60)).padStart(2,'0')}:${String(left%60).padStart(2,'0')}`;if(left<=0){stopTimer();toast(label+' kết thúc');return}left--};
-  tick();state.timer=setInterval(tick,1000);
+function speakingTimerModes(sec) {
+  const clock=window.APT_SPEAK_CLOCK;
+  const basic=clock.plan(sec.part,1,sec.settings,'exam');
+  const given=clock.plan(sec.part,1,sec.settings,'lesson');
+  const modes=[['exam','Chu\u1ea9n APTIS'],['relaxed','Luy\u1ec7n ch\u1eadm (+30 gi\u00e2y)']];
+  if(basic.prepSeconds!==given.prepSeconds || basic.speakSeconds!==given.speakSeconds)
+    modes.push(['lesson','Theo th\u1eddi gian b\u00e0i t\u1eadp ('+given.prepSeconds+'s + '+given.speakSeconds+'s)']);
+  return modes;
 }
+function effectiveTimerMode(sec) {
+  const modes=speakingTimerModes(sec);
+  return modes.some(([v])=>v===timerPrefs.mode) ? timerPrefs.mode : 'exam';
+}
+function speakingTimerMarkup(sec,qs) {
+  const clock=window.APT_SPEAK_CLOCK;
+  const part=clock.partNumber(sec.part),mode=effectiveTimerMode(sec);
+  const opts=speakingTimerModes(sec).map(([value,label])=>`<option value="${value}" ${mode===value?'selected':''}>${label}</option>`).join('');
+  const plan=clock.plan(sec.part,qs.length,sec.settings,mode);
+  const indicator=part===4?'3 c\u00e2u / 1 l\u1ea7n n\u00f3i':'C\u00e2u 1/'+plan.questionCount;
+  const current=part===4?'Tr\u1ea3 l\u1eddi c\u1ea3 3 c\u00e2u trong 2 ph\u00fat.':qs[0]||'';
+  return `<section class="speaking-clock" aria-label="Speaking countdown">
+    <div class="speaking-clock-header"><div><div class="pill">APTIS ESOL General</div><h3>B\u1ed9 \u0111\u1ebfm gi\u1edd luy\u1ec7n n\u00f3i</h3>
+    <p class="muted small">${part===4?`Part 4: ${plan.prepSeconds} gi\u00e2y chu\u1ea9n b\u1ecb, ${plan.speakSeconds} gi\u00e2y n\u00f3i cho 3 c\u00e2u.`:`Part ${part}: ${plan.speakSeconds} gi\u00e2y m\u1ed7i c\u00e2u; ${plan.questionCount} c\u00e2u trong b\u00e0i.`}</p></div>
+    <label class="timer-mode-label"><span>Ch\u1ebf \u0111\u1ed9 th\u1eddi gian</span><select id="timerMode" onchange="APT.timerSetMode(this.value)">${opts}</select></label></div>
+    <div class="speaking-clock-face"><div class="speaking-clock-time"><div class="speaking-stage" id="timerStage">Ch\u01b0a b\u1eaft \u0111\u1ea7u</div>
+       <div class="speaking-clock-digits" id="sTimer" role="timer" aria-label="Time remaining">${clock.format(plan.prepSeconds||plan.speakSeconds)}</div>
+       <div class="speaking-clock-warning" id="timerCountdownHint">${plan.prepSeconds?'Chu\u1ea9n b\u1ecb tr\u01b0\u1edbc khi n\u00f3i':'S\u1eb5n s\u00e0ng tr\u1ea3 l\u1eddi'}</div></div>
+       <div class="speaking-clock-focus"><div class="speaking-clock-step" id="timerQuestionIndicator">${indicator}</div>
+       <p id="timerFocus">${esc(current)}</p><div class="speaking-clock-track"><div class="speaking-clock-progress" id="timerProgress" style="width:100%"></div></div>
+       <span class="small muted" id="timerStatus" aria-live="polite">B\u1ea5m B\u1eaft \u0111\u1ea7u \u0111\u1ec3 luy\u1ec7n.</span></div></div>
+    <div class="speaking-clock-actions">
+      <button class="btn primary" id="timerStartBtn" onclick="APT.timerStart()">\u25b6 B\u1eaft \u0111\u1ea7u</button>
+      <button class="btn" id="timerPauseBtn" onclick="APT.timerTogglePause()" disabled>T\u1ea1m d\u1eebng</button>
+      <button class="btn" onclick="APT.timerReset()">\u21ba L\u00e0m l\u1ea1i</button>
+      <button class="btn" id="timerSkipBtn" onclick="APT.timerSkipPreparation()" ${plan.prepSeconds>0?'':'hidden'}>B\u1ecf qua chu\u1ea9n b\u1ecb</button>
+      <button class="btn" id="timerPrevBtn" onclick="APT.timerPrevious()" ${part===4||qs.length===1?'hidden':''}>\u2190 C\u00e2u tr\u01b0\u1edbc</button>
+      <button class="btn" id="timerNextBtn" onclick="APT.timerNext()" ${part===4||qs.length===1?'hidden':''}>C\u00e2u sau \u2192</button>
+    </div>
+    <div class="speaking-clock-options">
+      <label ${plan.prepSeconds===0?'hidden':''}><input type="checkbox" id="timerAutoPrep" ${timerPrefs.autoPrep?'checked':''} onchange="APT.timerOption('autoPrep',this.checked)"> T\u1ef1 chuy\u1ec3n sang n\u00f3i sau khi chu\u1ea9n b\u1ecb</label>
+      <label ${part===4||qs.length<2?'hidden':''}><input type="checkbox" id="timerAutoNext" ${timerPrefs.autoNext?'checked':''} onchange="APT.timerOption('autoNext',this.checked)"> T\u1ef1 chuy\u1ec3n c\u00e2u khi h\u1ebft gi\u1edd</label>
+      <label><input type="checkbox" id="timerSound" ${timerPrefs.sound?'checked':''} onchange="APT.timerOption('sound',this.checked)"> B\u00e1o \u00e2m khi c\u00f2n 10 gi\u00e2y</label>
+    </div><p class="muted tiny speaking-clock-footnote">B\u1ed9 \u0111\u1ebfm gi\u1edd kh\u00f4ng t\u1ef1 ghi \u00e2m. Nh\u1ea5n \"B\u1eaft \u0111\u1ea7u\" trong khung Ghi \u00e2m b\u00ean d\u01b0\u1edbi n\u1ebfu mu\u1ed1n l\u01b0u gi\u1ecdng n\u00f3i.</p>
+  </section>`;
+}
+function timerSignal(event) {
+  if(!timerPrefs.sound || !['ten-seconds','phase-complete','speaking-start'].includes(event))return;
+  try{
+    const AC=window.AudioContext||window.webkitAudioContext;if(!AC)return;
+    if(!speakingClockAudio)speakingClockAudio=new AC();
+    if(speakingClockAudio.state==='suspended')speakingClockAudio.resume().catch(()=>{});
+    const osc=speakingClockAudio.createOscillator(),gain=speakingClockAudio.createGain();
+    osc.type='sine';osc.frequency.value=event==='ten-seconds'?790:event==='speaking-start'?660:480;
+    gain.gain.value=.09;osc.connect(gain);gain.connect(speakingClockAudio.destination);
+    const t=speakingClockAudio.currentTime;osc.start(t);osc.stop(t+(event==='phase-complete'?.24:.12));
+  }catch(e){console.debug('Timer cue unavailable',e)}
+}
+function timerCue(event,info) {
+  timerSignal(event);
+  if(event==='ten-seconds')toast('C\u00f2n 10 gi\u00e2y!');
+  if(event==='phase-complete' && info?.phase==='speaking')toast('H\u1ebft gi\u1edd n\u00f3i!');
+}
+function updateSpeakingTimerUI(info) {
+  if(!info || state.page!=='speaking')return;
+  const digits=$('#sTimer'),stage=$('#timerStage'),focus=$('#timerFocus');if(!digits||!stage||!focus)return;
+  const clock=window.APT_SPEAK_CLOCK;
+  const msg={ready:'Ch\u01b0a b\u1eaft \u0111\u1ea7u',prepare:'Chu\u1ea9n b\u1ecb',speaking:'\u0110ang n\u00f3i',prepared:'S\u1eb5n s\u00e0ng n\u00f3i',done:'H\u1ebft gi\u1edd'};
+  const paused=!info.running&&['prepare','speaking'].includes(info.phase);
+  stage.textContent=paused?'\u0110\u00e3 t\u1ea1m d\u1eebng':msg[info.phase]||'';
+  digits.textContent=clock.format(info.remainingSeconds);
+  const hint=$('#timerCountdownHint');
+  if(hint)hint.textContent=info.phase==='prepare'?'Chu\u1ea9n b\u1ecb — ch\u01b0a c\u1ea7n n\u00f3i':
+    info.phase==='speaking'?'Tr\u1ea3 l\u1eddi r\u00f5 r\u00e0ng, theo \u0111\u00fang c\u00e2u h\u1ecfi':
+    info.phase==='done'?'\u0110\u00e3 k\u1ebft th\u00fac':'B\u1ea5m B\u1eaft \u0111\u1ea7u \u0111\u1ec3 luy\u1ec7n';
+  digits.classList.toggle('warning',info.running&&info.remainingSeconds<=10);
+  const ind=$('#timerQuestionIndicator');if(ind)ind.textContent=info.part===4?'3 c\u00e2u / 1 l\u1ea7n n\u00f3i':`C\u00e2u ${info.questionIndex+1}/${info.questionCount}`;
+  focus.textContent=info.part===4?'Tr\u1ea3 l\u1eddi c\u1ea3 ba c\u00e2u h\u1ecfi; kh\u00f4ng ch\u1ec9 k\u1ec3 chuy\u1ec7n \u1edf c\u00e2u 1.':(speakingClockQuestions[info.questionIndex]||'');
+  const bar=$('#timerProgress');if(bar){bar.style.width=info.progress+'%';bar.classList.toggle('warning',info.remainingSeconds<=10);}
+  const msg2=$('#timerStatus');if(msg2)msg2.textContent=info.phase==='ready'?'S\u1eb5n s\u00e0ng luy\u1ec7n theo th\u1eddi gian \u0111\u00e3 ch\u1ecdn.':
+    info.phase==='prepared'?'\u0110\u00e3 h\u1ebft gi\u1edd chu\u1ea9n b\u1ecb. Nh\u1ea5n B\u1eaft \u0111\u1ea7u n\u00f3i.':
+    info.phase==='done'?(info.part!==4&&info.questionIndex<info.questionCount-1?'C\u00e2u n\u00e0y \u0111\u00e3 h\u1ebft gi\u1edd. Nh\u1ea5n C\u00e2u sau.':'Ho\u00e0n th\u00e0nh. Nghe l\u1ea1i b\u1ea3n ghi \u00e2m v\u00e0 ki\u1ec3m tra c\u00e2u tr\u1ea3 l\u1eddi.'):
+    paused?'\u0110\u1ed3ng h\u1ed3 \u0111ang t\u1ea1m d\u1eebng.':'\u0110\u1ed3ng h\u1ed3 \u0111ang ch\u1ea1y theo th\u1eddi gian th\u1ef1c.';
+  const start=$('#timerStartBtn'),pause=$('#timerPauseBtn'),skip=$('#timerSkipBtn');
+  if(start){start.disabled=info.running||info.phase==='done';start.textContent=info.phase==='prepared'?'\u25b6 B\u1eaft \u0111\u1ea7u n\u00f3i':
+      paused?'\u25b6 Ti\u1ebfp t\u1ee5c': '\u25b6 B\u1eaft \u0111\u1ea7u';}
+  if(pause){pause.disabled=!info.running;pause.textContent='\u275a\u275a T\u1ea1m d\u1eebng';}
+  if(skip)skip.hidden=info.prepSeconds===0 || ['speaking','done'].includes(info.phase);
+  const prev=$('#timerPrevBtn'),next=$('#timerNextBtn');
+  if(prev)prev.disabled=info.questionIndex===0;
+  if(next)next.disabled=info.questionIndex>=info.questionCount-1;
+  for(const el of document.querySelectorAll('.speakingQuestions li[data-speaking-question]')){
+    const index=Number(el.getAttribute('data-speaking-question'));
+    el.classList.toggle('is-active',info.part!==4&&index===info.questionIndex);
+  }
+}
+function ensureSpeakingClock(sec,item,questions) {
+  const key=sec.id+':'+item.id;
+  speakingClockQuestions=questions;
+  if(speakingClock&&speakingClockKey===key){updateSpeakingTimerUI(speakingClock.snapshot());return}
+  stopTimer();speakingClockKey=key;speakingClockQuestions=questions;
+  speakingClock=window.APT_SPEAK_CLOCK.createClock({onUpdate:updateSpeakingTimerUI,onCue:timerCue});
+  speakingClock.init({part:sec.part,questionCount:questions.length,settings:sec.settings,mode:effectiveTimerMode(sec),autoPrep:timerPrefs.autoPrep,autoNext:timerPrefs.autoNext});
+}
+function timerSetMode(next) {
+  if(!['exam','relaxed','lesson'].includes(next))return;
+  const sec=activeSpeakingSection();if(!sec)return;
+  timerPrefs.mode=next;store.set(TIMER_PREFS_KEY,timerPrefs);
+  const item=sec.items[itemIndex(sec)],questions=speakingQuestions(sec,item);
+  stopTimer();ensureSpeakingClock(sec,item,questions);
+  // The next render restores the selected mode and its instructions.
+  renderSection(sec);
+}
+function activeSpeakingSection(){
+  if(state.page!=='speaking')return null;
+  const ss=skillSections('speaking'),sid=store.get('aptis_active_speaking',ss[0]?.id);
+  return ss.find(s=>s.id===sid)||ss[0]||null;
+}
+function timerOption(key,val) {
+  if(!['autoPrep','autoNext','sound'].includes(key))return;
+  timerPrefs[key]=!!val;store.set(TIMER_PREFS_KEY,timerPrefs);
+  speakingClock?.options({[key]:!!val});
+}
+function timerStart(){
+  if(!speakingClock)return;
+  if(speakingClock.snapshot()?.phase==='done'){speakingClock.reset();}
+  speakingClock.start();
+}
+function timerTogglePause(){if(!speakingClock)return;const x=speakingClock.snapshot();x.running?speakingClock.pause():speakingClock.resume()}
+function timerReset(){speakingClock?.reset()}
+function timerSkipPreparation(){speakingClock?.skipPreparation()}
+function timerNext(){speakingClock?.next()}
+function timerPrevious(){speakingClock?.previous()}
+// Compatibility with legacy timer calls from older personal packs.
+function startTimer(seconds,label){if(!speakingClock)return;(/chu\u1ea9n|prep/i.test(label||'')&&seconds)?speakingClock.start():speakingClock.skipPreparation()}
 function showRecordedAudio(key,blob,saved,updatedAt){
   if(state.currentAudioKey!==key||state.page!=='speaking')return;
   const pane=$('#recordPlayback'),btn=$('#downloadRec'),status=$('#recordStatus');
@@ -567,10 +704,10 @@ function markPractice(key){markDone(key,1,1);toast('Đã đánh dấu hoàn thà
 // ---------- Extensions and wiring ----------
 const Features=window.APT_FEATURES({state,sections,store,esc,render,page,toast,download});
 window.APT={
- page,section(skill,id){stopRecording(true);store.set('aptis_active_'+skill,id);renderSkill(skill)},
+ page,section(skill,id){stopTimer();stopRecording(true);store.set('aptis_active_'+skill,id);renderSkill(skill)},
  next(id){const sec=sectionById(id);if(sec)setIndex(sec,1)},prev(id){const sec=sectionById(id);if(sec)setIndex(sec,-1)},
  moveOrder,checkOrder,resetOrder,setOpinion,checkOpinion,
- startTimer,stopTimer,startRecording,stopRecording,attachRecording,tts:speak,ttsCurrent,toggleSample,selectVariant,saveDraft,clearDraft,markPractice,exportAnswer,exportSubmission,exportSelectedSubmission,saveProfile,submissionSelect,
+ startTimer,stopTimer,timerStart,timerTogglePause,timerReset,timerSkipPreparation,timerNext,timerPrevious,timerSetMode,timerOption,startRecording,stopRecording,attachRecording,tts:speak,ttsCurrent,toggleSample,selectVariant,saveDraft,clearDraft,markPractice,exportAnswer,exportSubmission,exportSelectedSubmission,saveProfile,submissionSelect,
  checkMCQ,checkSpeaker,checkTwo,checkHeadings,checkQuiz,
  importPacks,removePack,downloadExample,exportCustomJSON,exportExtraJS,exportProgress,importProgress,
  ...Features

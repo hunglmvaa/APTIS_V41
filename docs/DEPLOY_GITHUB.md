@@ -35,3 +35,10 @@
 - Sau khi cập nhật: mở **Speaking**, nhập ghi chú, ghi âm (cần quyền mic trên HTTPS), dừng và nghe lại. Mở **Xuất bài nộp**, điền họ tên/lớp, chọn bài và tải ZIP. Kiểm tra ZIP có `BAI_LAM.txt` và `GHI_AM.webm/m4a/...`.
 - Dữ liệu âm thanh lưu cục bộ trong trình duyệt. Không push nội dung âm thanh/bài viết cá nhân lên repository public; hãy dùng chức năng ZIP riêng.
 - App không tự gửi bài cho giáo viên và không tự tạo tệp MP3 từ WebM.
+
+## Update v4.3 - Speaking timer
+
+For a GitHub Pages repository already running v4.2, use APTIS_V43_GITHUB.zip.
+Unzip and upload all files in the archive to the repository root, preserving the docs folder. The new mandatory file is `speaking-timer.js`, loaded from `index.html` before `app.js`.
+Do NOT replace `data/extra-packs.js` or the other `data/` files with empty defaults when applying the patch. No changes to learner progress or stored recordings are required.
+After publishing, hard-reload the site, then open Speaking. Check 30s for Part 1, 45s for Parts 2 and 3 (including new custom three-question packs), and 01:00 preparation + 02:00 speaking for Part 4.
