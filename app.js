@@ -4,6 +4,7 @@ const BUILTIN = Array.isArray(window.APTIS_BUILTIN_PACKS) ? window.APTIS_BUILTIN
 const EXTRA = Array.isArray(window.APTIS_EXTRA_PACKS) ? window.APTIS_EXTRA_PACKS : [];
 const TEACHER = Array.isArray(window.APTIS_TEACHER_PACKS) ? window.APTIS_TEACHER_PACKS : [];
 const SUB=window.APTIS_SUBMISSION;
+const Study=window.APT_STUDY;
 const SUPPORTED_TYPES = [
   'external_iframe','reading_order','reading_opinion','speaking_prompt',
   'writing_short','writing_dual_email',
@@ -83,10 +84,10 @@ function renderHome(){
     <div class="grid">
       <section class="card span8 hero">
         <span class="pill ok">APTIS ESOL General · Mục tiêu B2</span>
-        <h1>APTIS Practice Hub v4.1</h1>
+        <h1>APTIS Practice Hub v4.2</h1>
         <p>Luyện các đề có sẵn và trực tiếp tạo bài tập thầy giao. Phần <b>Speaking Part 4</b> hiển thị đủ ba câu hỏi, đồng hồ chuẩn bị 1 phút, trả lời 2 phút và ghi âm.</p>
         <div class="row"><button class="btn primary" onclick="APT.page('assignments')">Bài thầy giao (${exercises.length})</button><button class="btn" onclick="APT.creatorNew()">+ Tạo bài tập</button><button class="btn" onclick="APT.page('speaking')">Luyện Speaking</button><button class="btn good" onclick="APT.page('submission')">Xuất bài nộp (.zip)</button></div>
-        <div class="notice warn"><b>Lưu ý:</b> Bài mẫu / đáp án tự biên soạn được ghi rõ nguồn; ứng dụng không tự kết luận trình độ B2 từ số từ hoặc đánh dấu đã luyện.</div>
+        <div class="notice ok"><b>Mới V4.2:</b> Tại mỗi bài, nhấn <b>🌐 Dịch toàn bài</b>, <b>Dịch VI</b> cho từng đoạn, hoặc mở <b>💡 Gợi ý làm bài chi tiết</b>. Khi tạo/import bài mới có thể bổ sung bản dịch tiếng Việt.</div><div class="notice warn"><b>Lưu ý:</b> Nút Dịch VI chỉ tạo bản dịch tham khảo nếu đề chưa có tiếng Việt; ứng dụng không tự kết luận trình độ B2 từ số từ hoặc đánh dấu đã luyện.</div>
       </section>
       <section class="card span4">
         <h3>Tỉ lệ bài đã luyện</h3><div class="progressBig">${completion()}%</div>
@@ -113,7 +114,7 @@ function renderSkill(skill){
 }
 function renderSection(sec){
   if(!sec||!(sec.items||[]).length){$('#exercise').innerHTML='<div class="card"><div class="notice warn">Phần này chưa có bài tập hợp lệ.</div></div>';return}
-  let fn=renderers[sec.type]||renderUnsupported;fn(sec);
+  let fn=renderers[sec.type]||renderUnsupported;fn(sec);Study.enhance(sec,sec.items[itemIndex(sec)]);
 }
 function header(sec,item,titleExtra=''){
   let i=itemIndex(sec);
@@ -345,7 +346,7 @@ function renderWritingChat(sec){
 function renderQuiz(sec){
  const item=sec.items[itemIndex(sec)],isAudio=sec.type==='listening_quiz';
  $('#exercise').innerHTML=`<div class="card">${header(sec,item)}<h3>${esc(item.title||'Multiple choice')}</h3>
- ${isAudio?`${audioTag(item.audio)}${item.transcript?`<details><summary>Hiện transcript</summary><div class="sample">${esc(item.transcript)}</div></details>`:''}`:`<div class="prompt readingPassage">${esc(item.passage||'Chưa có đoạn văn')}</div>`}
+ ${isAudio?`${audioTag(item.audio)}${item.transcript?`<details><summary>Hiện transcript</summary><div class="sample">${esc(item.transcript)}</div></details>`:''}`:`<div class="prompt readingPassage">${String(item.passage||'Chưa có đoạn văn').split(/\n\s*\n|\n/).filter(x=>x.trim()).map(p=>`<p class="reading-paragraph">${esc(p.trim())}</p>`).join('')}</div>`}
  ${(item.questions||[]).map((q,i)=>`<fieldset class="quizQuestion"><legend>${i+1}. ${esc(q.prompt||q.question||'')}</legend>${(q.options||[]).map((o,j)=>`<label class="quizOption"><input type="radio" name="quiz-${i}" value="${j}"><span><b>${String.fromCharCode(65+j)}.</b> ${esc(o)}</span></label>`).join('')}<p class="quizFeedback" id="quizFeedback-${i}" aria-live="polite"></p></fieldset>`).join('')}
  <div class="row"><button class="btn primary" onclick="APT.checkQuiz('${esc(sec.id)}','${esc(item.id)}')">Kiểm tra đáp án</button><span id="quizSummary" class="result"></span></div>
  <p class="muted small">Chỉ chấm câu có đáp án đã xác minh. Câu ghi “chưa xác minh” không tính điểm và cần đối chiếu nguồn / audio gốc.</p>${navItem(sec)}</div>`;
@@ -435,7 +436,7 @@ function renderData(){
    <span class="pill">Import Pack</span><h2>Thêm phần mới khi có tài liệu</h2>
    <p>Muốn tạo bài theo đề thầy mà không dùng JSON? <button class="btn small" onclick="APT.creatorNew()">Mở công cụ Tạo bài tập</button>. Pack JSON chỉ dành cho bài nâng cao / nhập dữ liệu nhiều bài cùng lúc.</p>
    <div class="filebox"><b>Chọn một hoặc nhiều file JSON</b><p class="muted small">Pack hợp lệ sẽ được lưu vào localStorage trên thiết bị này.</p><label class="btn primary">Import JSON<input multiple type="file" accept=".json,application/json" hidden onchange="APT.importPacks(this.files)"></label></div>
-   <div class="row" style="margin-top:12px"><button class="btn" onclick="APT.downloadExample()">Tải example-pack.json</button><button class="btn" onclick="APT.exportCustomJSON()">Xuất custom packs JSON</button><button class="btn good" onclick="APT.exportExtraJS()">Xuất extra-packs.js cho GitHub</button></div>
+   <label class="study-import-option"><input id="autoTranslatePacks" type="checkbox"> Dịch tự động các đoạn/câu hỏi còn thiếu tiếng Việt khi nhập JSON (cần Internet và đồng ý gửi nội dung tới MyMemory; giới hạn số lượng)</label><p class="muted small">Không bật tùy chọn? Bài nhập vẫn có nút <b>Dịch VI</b> và mục <b>Gợi ý làm bài</b> khi mở. Không gửi nội dung đề riêng tư đến dịch vụ bên thứ ba nếu chưa được phép.</p><div class="row" style="margin-top:12px"><button class="btn" onclick="APT.downloadExample()">Tải example-pack.json</button><button class="btn" onclick="APT.exportCustomJSON()">Xuất custom packs JSON</button><button class="btn good" onclick="APT.exportExtraJS()">Xuất extra-packs.js cho GitHub</button></div>
    <div class="notice warn">Dữ liệu trong trình duyệt <b>không tự đồng bộ</b> và có thể mất khi xóa dữ liệu trang web. Xuất sao lưu định kỳ. <b>File JSON không kèm âm thanh</b>; hãy xuất ZIP ở tab <button class="btn small" onclick="APT.page('submission')">Xuất bài nộp</button> để sao lưu cả ghi âm.</div>
    <div class="row"><button class="btn primary" onclick="APT.exportBackup()">Sao lưu toàn bộ (bài viết, tiến độ, bài tự tạo)</button><label class="btn">Nhập/Gộp sao lưu<input type="file" accept=".json,application/json" hidden onchange="APT.importBackup(this.files[0])"></label></div>
  </section>
@@ -533,6 +534,9 @@ async function exportSelectedSubmission(){
 }
 
 async function importPacks(files){
+ const wantTranslations=!!document.getElementById('autoTranslatePacks')?.checked;
+ const canTranslate=wantTranslations&&Study.askConsent();
+ let totalDone=0,totalSkipped=0,budget=4300;
  for(let f of files){
    try{
      if(f.size>10*1024*1024)throw new Error('File quá lớn (trên 10 MB)');
@@ -540,9 +544,11 @@ async function importPacks(files){
      if(errs.length){alert(`${f.name}\n\n`+errs.join('\n'));continue}
      let collision=sections().some(s=>(p.sections||[]).some(ns=>ns.id===s.id));
      if(collision){alert(`${f.name}: có section id trùng dữ liệu đang cài.`);continue}
-     state.customPacks.push(p);store.set('aptis_custom_packs',state.customPacks);toast('Đã import '+(p.title||p.packId));
+     if(canTranslate){for(const section of p.sections){if(budget<=0)break;const r=await Study.enrichSection(section,Math.min(budget,1600));totalDone+=r.done;totalSkipped+=r.skipped;budget-=1600;}}
+     state.customPacks.push(p);if(!store.set('aptis_custom_packs',state.customPacks)){state.customPacks.pop();throw new Error('Bộ nhớ không đủ cho pack mới, hãy xuất sao lưu trước.')}toast('Đã import '+(p.title||p.packId));
    }catch(e){alert(`${f.name}: không nhập được. ${e.message}`)}
  }
+ if(canTranslate)alert('Đã thêm bản dịch máy vào '+totalDone+' mục; '+totalSkipped+' mục chưa dịch (hết hạn mức/đã có bản dịch/nguồn lỗi). Mở bài để xem, sửa lại nếu cần.');
  render();
 }
 function removePack(id){if(!confirm('Xóa custom pack '+id+' khỏi thiết bị?'))return;state.customPacks=state.customPacks.filter(p=>p.packId!==id);store.set('aptis_custom_packs',state.customPacks);render()}
@@ -570,7 +576,9 @@ window.APT={
  ...Features
 };
 $('#mainNav').addEventListener('click',e=>{let b=e.target.closest('[data-page]');if(b){if(b.dataset.page==='creator')Features.creatorNew();else page(b.dataset.page)}});
-$('#langBtn').onclick=()=>{state.lang=state.lang==='en'?'vi':'en';store.set('aptis_lang',state.lang);render()};
+document.addEventListener('aptis-translation-visibility',ev=>{state.lang=ev.detail.visible?'vi':'en';store.set('aptis_lang',state.lang)});
+$('#langBtn').onclick=()=>{state.lang=state.lang==='en'?'vi':'en';store.set('aptis_lang',state.lang);Study.setVisible(state.lang==='vi');render()};
 $('#stopTts').onclick=stopTTS;
+Study.setVisible(state.lang==='vi');
 render();
 })();
