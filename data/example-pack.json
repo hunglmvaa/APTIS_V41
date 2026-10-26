@@ -1,0 +1,37 @@
+{
+  "schemaVersion": 1,
+  "packId": "example-speaking-part2",
+  "title": "Example future Speaking Part 2 pack",
+  "sections": [
+    {
+      "id": "speaking-part2-example",
+      "skill": "speaking",
+      "part": "Part 2",
+      "title": "Speaking Part 2 — Example",
+      "type": "speaking_picture",
+      "status": "custom",
+      "settings": {
+        "prepSeconds": 5,
+        "speakSeconds": 45
+      },
+      "items": [
+        {
+          "id": "sp2-example-01",
+          "image": "assets/example-picture.jpg",
+          "prompt": "Describe the picture.",
+          "sample": "Replace this with the source-supported sample answer.",
+          "followups": [
+            {
+              "prompt": "Follow-up question 1",
+              "sample": ""
+            },
+            {
+              "prompt": "Follow-up question 2",
+              "sample": ""
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
